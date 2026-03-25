@@ -3,7 +3,6 @@
 
 O Ravis é um assistente virtual de desktop inspirado no JARVIS (Iron Man), com foco em:
 
-
 💬 Chat com IA (streaming em tempo real)
 🧠 Memória persistente inteligente
 🔊 Síntese de voz (TTS)
