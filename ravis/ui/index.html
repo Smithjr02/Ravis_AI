@@ -1,0 +1,1101 @@
+<!-- ================================================
+    RAVIS - INTERFACE PRINCIPAL
+    ================================================
+    Propósito: Interface HTML do assistente virtual Ravis
+    
+    Tecnologias:
+    - Tailwind CSS: Framework de estilização
+    - Fontes: Orbitron (sci-fi) + Rajdhani (moderno)
+    - WebSocket: Comunicação em tempo real
+    - Audio API: Reprodução de TTS
+    
+    Componentes:
+    1. Header: Relógio + Status + Clima
+    2. Sidebar: Widgets de sistema (CPU, RAM, etc)
+    3. Área Central: Iron Man SVG com animações
+    4. Chat: Mensagens + Input de texto
+    
+    Estados do Avatar (cores):
+    - idle: Cyan (#00D4FF)
+    - listening: Cyan (#00D4FF)
+    - thinking: Gold (#FFD700)
+    - speaking: Green (#00FF88)
+    - searching: Orange (#FF6B00)
+    - error: Red (#FF3B3B)
+    -->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ravis - Assistente Virtual</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ravis-dark': '#0A0E1A',
+                        'ravis-darker': '#050810',
+                        'ravis-blue': '#00D4FF',
+                        'ravis-blue-dark': '#0099CC',
+                        'ravis-purple': '#8B5CF6',
+                        'ravis-green': '#10B981',
+                        'ravis-red': '#EF4444',
+                        'ravis-yellow': '#F59E0B',
+                    },
+                    fontFamily: {
+                        'orbitron': ['Orbitron', 'sans-serif'],
+                        'rajdhani': ['Rajdhani', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'scan': 'scan 4s linear infinite',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px #00D4FF, 0 0 10px #00D4FF' },
+                            '100%': { boxShadow: '0 0 10px #00D4FF, 0 0 20px #00D4FF, 0 0 30px #00D4FF' },
+                        },
+                        scan: {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-ravis-dark text-white font-rajdhani overflow-hidden">
+    <!-- Connection Banner -->
+    <div id="connection-banner" class="hidden fixed top-0 left-0 right-0 p-3 text-center z-50 bg-yellow-600 text-white">
+        <span id="banner-text"></span>
+    </div>
+    
+    <!-- Scanline Effect -->
+    <div class="scanline fixed inset-0 pointer-events-none z-50"></div>
+    
+    <!-- Selection Overlay -->
+    <div id="selection-overlay" class="hidden fixed inset-0 bg-black/50 cursor-crosshair z-[60]">
+        <div id="selection-box" class="absolute border-2 border-[#00D4FF] bg-[#00D4FF]/10 hidden pointer-events-none"></div>
+    </div>
+    
+    <!-- Styles for tabular numbers -->
+    <style>
+        .font-tabular { font-variant-numeric: tabular-nums; }
+        
+        /* Iron Man Eyes Animations */
+        #Eyes {
+            transition: all 0.3s ease;
+        }
+        
+        .eyes-idle {
+            animation: eye-pulse-idle 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 3px #00D4FF);
+        }
+        
+        .eyes-speaking {
+            animation: eye-pulse-fast 0.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 8px #00FF88);
+        }
+        
+        .eyes-thinking {
+            animation: eye-blink 1.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 6px #FFD700);
+        }
+        
+        .eyes-searching {
+            animation: eye-scan 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 6px #FF6B00);
+        }
+        
+        .eyes-listening {
+            animation: eye-pulse-idle 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 5px #00D4FF);
+        }
+        
+        .eyes-error {
+            animation: eye-alarm 0.3s ease-in-out infinite;
+            filter: drop-shadow(0 0 8px #FF3B3B);
+        }
+        
+        @keyframes eye-pulse-idle {
+            0%, 100% { filter: drop-shadow(0 0 3px #00D4FF); }
+            50% { filter: drop-shadow(0 0 6px #00D4FF); }
+        }
+        
+        @keyframes eye-pulse-fast {
+            0%, 100% { filter: drop-shadow(0 0 5px #00FF88); }
+            50% { filter: drop-shadow(0 0 12px #00FF88); }
+        }
+        
+        @keyframes eye-blink {
+            0%, 90%, 100% { filter: drop-shadow(0 0 6px #FFD700); opacity: 1; }
+            95% { filter: drop-shadow(0 0 2px #FFD700); opacity: 0.3; }
+        }
+        
+        @keyframes eye-scan {
+            0%, 100% { filter: drop-shadow(0 0 4px #FF6B00); }
+            50% { filter: drop-shadow(0 0 10px #FF6B00); }
+        }
+        
+        @keyframes eye-alarm {
+            0%, 100% { filter: drop-shadow(0 0 5px #FF3B3B); }
+            50% { filter: drop-shadow(0 0 15px #FF3B3B); }
+        }
+        
+        /* Iron Man Reactor Animations */
+        #reactor {
+            transform-origin: 952px 852px;
+            transition: all 0.5s ease;
+        }
+        
+        .reactor-idle {
+            animation: rotate-idle 8s linear infinite;
+            filter: drop-shadow(0 0 5px #00D4FF);
+        }
+        
+        .reactor-speaking {
+            animation: rotate-fast 1.5s linear infinite;
+            filter: drop-shadow(0 0 15px #00FF88) drop-shadow(0 0 30px #00FF88);
+        }
+        
+        .reactor-thinking {
+            animation: rotate-medium 3s linear infinite;
+            filter: drop-shadow(0 0 10px #FFD700);
+        }
+        
+        .reactor-searching {
+            animation: rotate-vary 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px #FF6B00);
+        }
+        
+        .reactor-listening {
+            animation: rotate-idle 6s linear infinite;
+            filter: drop-shadow(0 0 8px #00D4FF);
+        }
+        
+        .reactor-error {
+            animation: pulse-red 0.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 15px #FF3B3B);
+        }
+        
+        @keyframes rotate-idle {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes rotate-fast {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes rotate-medium {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes rotate-vary {
+            0%, 100% { transform: rotate(360deg); }
+            50% { transform: rotate(380deg); }
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { filter: drop-shadow(0 0 10px #FF3B3B); }
+            50% { filter: drop-shadow(0 0 25px #FF3B3B); }
+        }
+        
+        /* Animação de desenho progressivo - Iron Man */
+        #ironman-svg .draw {
+            stroke-dasharray: 3000;
+            stroke-dashoffset: 3000;
+            animation: draw-stroke 3.5s ease-out forwards;
+        }
+
+        @keyframes draw-stroke {
+            to { stroke-dashoffset: 0; }
+        }
+        
+        /* Reator CSS - Logo do Header (SIMPLES E ROBUSTO) */
+        #header-reactor {
+            position: relative;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--reactor-color, #00D4FF), inset 0 0 15px var(--reactor-color, #00D4FF);
+            background: transparent;
+        }
+        
+        #header-reactor .outer-ring {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid var(--reactor-color, #00D4FF);
+            box-shadow: 0 0 10px var(--reactor-color, #00D4FF) inset;
+            transition: all 0.3s ease;
+        }
+        
+        #header-reactor .inner-ring {
+            position: absolute;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid var(--reactor-color, #00D4FF);
+            opacity: 0.6;
+            transition: all 0.3s ease;
+        }
+        
+        #header-reactor .core {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--reactor-color, #00D4FF);
+            background: #0A1628;
+            animation: reactor-flicker 0.2s infinite;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 8px var(--reactor-color, #00D4FF);
+        }
+        
+        #header-reactor .markers {
+            position: absolute;
+            width: 56px;
+            height: 56px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #header-reactor .markers li {
+            position: absolute;
+            width: 2px;
+            height: 6px;
+            background: var(--reactor-color, #00D4FF);
+            top: 50%;
+            left: 50%;
+            transform-origin: center center;
+            animation: reactor-pulse 3s infinite ease-in-out;
+            border-radius: 1px;
+        }
+        
+        /* 12 marcadores - posições simplificadas */
+        #header-reactor .markers li:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(2) { transform: translate(-50%, -50%) rotate(30deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(3) { transform: translate(-50%, -50%) rotate(60deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(4) { transform: translate(-50%, -50%) rotate(90deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(5) { transform: translate(-50%, -50%) rotate(120deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(6) { transform: translate(-50%, -50%) rotate(150deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(7) { transform: translate(-50%, -50%) rotate(180deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(8) { transform: translate(-50%, -50%) rotate(210deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(9) { transform: translate(-50%, -50%) rotate(240deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(10) { transform: translate(-50%, -50%) rotate(270deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(11) { transform: translate(-50%, -50%) rotate(300deg) translateY(-22px); }
+        #header-reactor .markers li:nth-child(12) { transform: translate(-50%, -50%) rotate(330deg) translateY(-22px); }
+        
+        @keyframes reactor-flicker {
+            0%, 100% { box-shadow: 0 0 5px var(--reactor-color, #00D4FF); }
+            50% { box-shadow: 0 0 15px var(--reactor-color, #00D4FF); }
+        }
+        
+        @keyframes reactor-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Laboratório - Moldura sutil */
+        #laboratory-frame {
+            z-index: 1;
+            background: #020B18;
+            transition: opacity 0.5s ease;
+        }
+        
+        /* Cabos com fluxo */
+        .cable-flow {
+            stroke-dasharray: 8 4;
+            animation: cable-flow 1.5s linear infinite;
+        }
+        
+        @keyframes cable-flow {
+            to { stroke-dashoffset: -12; }
+        }
+        
+        /* Laboratório ativa apenas quando lab-active */
+        .lab-animate {
+            transition: opacity 0.5s ease;
+        }
+        
+        body.lab-active .lab-animate {
+            opacity: 1;
+        }
+        
+        /* Scanner ring */
+        #scanner-ring {
+            animation: scanner-spin 4s linear infinite;
+        }
+        
+        @keyframes scanner-spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- Main Container -->
+    <div class="h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-ravis-darker border-b border-ravis-blue/30 p-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <!-- Logo - Reator Arc -->
+                <div class="relative">
+                    <div id="header-reactor" style="--reactor-color: #00D4FF;">
+                        <div class="outer-ring"></div>
+                        <div class="inner-ring"></div>
+                        <div class="core"></div>
+                        <ul class="markers">
+                            <li></li><li></li><li></li><li></li><li></li><li></li>
+                            <li></li><li></li><li></li><li></li><li></li><li></li>
+                        </ul>
+                    </div>
+                    <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-[#00FF88] rounded-full animate-pulse"></div>
+                </div>
+                <div>
+                    <h1 class="font-orbitron text-3xl text-ravis-blue tracking-wider">RAVIS</h1>
+                    <p class="text-sm text-gray-400">Assistente Virtual</p>
+                </div>
+            </div>
+            
+            <!-- Status Indicators -->
+            <div class="flex items-center gap-8">
+                <!-- Clock -->
+                <div class="text-right">
+                    <div id="clock" class="font-orbitron text-2xl text-ravis-blue">00:00:00</div>
+                    <div id="date" class="text-sm text-gray-400">--/--/----</div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleMute()" class="p-3 bg-ravis-dark/50 rounded-lg border border-gray-600 hover:border-ravis-blue transition-colors" title="Alternar Mudo">
+                        <svg id="mute-icon" class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                        </svg>
+                    </button>
+                    <button onclick="startSelection()" class="p-3 bg-ravis-dark/50 rounded-lg border border-gray-600 hover:border-ravis-blue transition-colors" title="Captura de Tela (Google Lens)">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </button>
+                    <button onclick="openExplorer()" class="p-3 bg-ravis-dark/50 rounded-lg border border-gray-600 hover:border-ravis-blue transition-colors" title="Explorador de Arquivos">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                        </svg>
+                    </button>
+                    <button onclick="openSettings()" class="p-3 bg-ravis-dark/50 rounded-lg border border-gray-600 hover:border-ravis-blue transition-colors" title="Configurações">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Status Icons -->
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2" title="Microfone">
+                        <div id="mic-indicator" class="w-4 h-4 rounded-full bg-gray-500 transition-colors"></div>
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                    </div>
+                    <div class="flex items-center gap-2" title="Câmera">
+                        <div id="camera-indicator" class="w-4 h-4 rounded-full bg-gray-500 transition-colors"></div>
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content - 3 Colunas -->
+        <div class="flex-1 flex overflow-hidden gap-2 p-2">
+            <!-- Coluna 1: Sidebar - System Info (mais estreita) -->
+            <aside class="w-72 flex-shrink-0 bg-ravis-darker border-r border-ravis-blue/30 p-4 flex flex-col gap-4 overflow-y-auto">
+                <!-- Weather Widget -->
+                <div class="bg-ravis-dark/50 rounded-lg p-4 border border-ravis-blue/20">
+                    <h3 class="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/>
+                        </svg>
+                        CLIMA
+                    </h3>
+                    <div id="weather" class="text-center">
+                        <div class="text-3xl font-orbitron text-ravis-blue" id="temp">--°</div>
+                        <div class="text-sm text-gray-400" id="location">--</div>
+                        <div class="flex justify-center gap-3 mt-2 text-sm text-gray-500">
+                            <span>💧 <span id="humidity">--</span>%</span>
+                            <span>💨 <span id="wind">--</span> km/h</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Network Widget -->
+                <div class="bg-ravis-dark/50 rounded-lg p-4 border border-ravis-blue/20">
+                    <h3 class="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                        </svg>
+                        REDE
+                    </h3>
+                    <div id="network" class="text-center space-y-2">
+                        <div class="flex items-center justify-center gap-2">
+                            <span class="text-lg">📶</span>
+                            <span class="text-base text-gray-300 font-orbitron" id="wifi-name">--</span>
+                        </div>
+                        <div class="flex justify-center gap-4 text-base">
+                            <div class="min-w-[50px] text-center"><span class="text-ravis-green">⬇️</span> <span id="net-down" class="text-ravis-green font-orbitron font-tabular">--</span></div>
+                            <div class="min-w-[50px] text-center"><span class="text-ravis-purple">⬆️</span> <span id="net-up" class="text-ravis-purple font-orbitron font-tabular">--</span></div>
+                            <div class="min-w-[50px] text-center"><span class="text-ravis-blue">📶</span> <span id="net-ping" class="text-ravis-blue font-orbitron font-tabular">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Music Widget -->
+                <div class="bg-ravis-dark/50 rounded-lg p-4 border border-ravis-blue/20">
+                    <h3 class="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                        </svg>
+                        MÚSICA
+                    </h3>
+                    <div id="music" class="text-center">
+                        <div id="music-playing" class="hidden">
+                            <div class="flex items-center justify-center gap-2 mb-2">
+                                <span class="text-ravis-purple animate-pulse">🎵</span>
+                                <span class="text-sm text-ravis-purple" id="music-app">Spotify</span>
+                            </div>
+                            <div class="text-base text-white truncate" id="music-song">--</div>
+                            <div class="text-sm text-gray-500 truncate" id="music-artist">--</div>
+                        </div>
+                        <div id="music-idle" class="text-sm text-gray-500">
+                            Nenhuma música tocando
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Disks Widget -->
+                <div class="bg-ravis-dark/50 rounded-lg p-4 border border-ravis-blue/20">
+                    <h3 class="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 6H12L10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 12H5c-.55 0-1-.45-1-1v-2h16v2c0 .55-.45 1-1 1z"/>
+                        </svg>
+                        ARMAZENAMENTO
+                    </h3>
+                    <div id="disks" class="space-y-3 text-center">
+                        <div class="text-sm text-gray-500">Carregando...</div>
+                    </div>
+                </div>
+                
+                <!-- System Stats -->
+                <div class="bg-ravis-dark/50 rounded-lg p-4 border border-ravis-blue/20">
+                    <h3 class="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        SISTEMA
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-400">CPU</span>
+                                <span id="cpu-value" class="text-ravis-blue font-orbitron font-tabular min-w-[40px] text-right">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="cpu-bar" class="h-full bg-ravis-blue transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-400">RAM</span>
+                                <span id="ram-value" class="text-ravis-purple font-orbitron font-tabular min-w-[40px] text-right">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="ram-bar" class="h-full bg-ravis-purple transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-400">DISCO</span>
+                                <span id="disk-value" class="text-ravis-green font-orbitron font-tabular min-w-[40px] text-right">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="disk-bar" class="h-full bg-ravis-green transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-gray-700 flex justify-between text-sm">
+                        <span class="text-gray-400">Uptime:</span>
+                        <span id="uptime" class="text-ravis-blue font-orbitron font-tabular">0h 0min</span>
+                    </div>
+                </div>
+                
+            </aside>
+            
+            <!-- Coluna 2: Área Central (JARVIS Interface) -->
+            <div class="flex-1 flex flex-col border-x border-ravis-blue/20">
+                <!-- Parte Superior: Iron Man SVG (70%) -->
+                <div id="central-image" class="flex-[7] flex items-center justify-center border-b border-dashed border-cyan-500/50 p-2 overflow-hidden relative">
+                    <!-- Lab Minimalista -->
+                    <div class="grid-floor"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    
+                    <!-- Lab antigo (oculto via CSS) -->
+                    <div id="laboratory-frame" class="absolute inset-0 pointer-events-none z-0">
+                        <!-- Moldura corners -->
+                        <div class="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-[#00D4FF]/40"></div>
+                        <div class="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-[#00D4FF]/40"></div>
+                        <div class="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-[#00D4FF]/40"></div>
+                        <div class="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-[#00D4FF]/40"></div>
+                        
+                        <!-- Rack de servidores (esquerda) -->
+                        <div id="server-rack" class="absolute left-2 top-1/3 w-10 h-32 bg-[#0A1628]/50 border border-[#00D4FF]/30 rounded flex flex-col items-center py-1 gap-1">
+                            <div class="w-8 h-1 bg-[#00D4FF]/20 rounded"><div class="h-full bg-[#00FF88] animate-pulse" style="width: 80%"></div></div>
+                            <div class="w-8 h-1 bg-[#00D4FF]/20 rounded"><div class="h-full bg-[#00FF88] animate-pulse" style="width: 65%"></div></div>
+                            <div class="w-8 h-1 bg-[#00D4FF]/20 rounded"><div class="h-full bg-[#00D4FF] animate-pulse" style="width: 90%"></div></div>
+                            <div class="w-8 h-1 bg-[#00D4FF]/20 rounded"><div class="h-full bg-[#00FF88] animate-pulse" style="width: 45%"></div></div>
+                            <div class="flex gap-1 mt-1">
+                                <div class="w-2 h-2 rounded-full bg-[#00FF88] animate-pulse"></div>
+                                <div class="w-2 h-2 rounded-full bg-[#00D4FF] animate-pulse" style="animation-delay: 0.2s"></div>
+                                <div class="w-2 h-2 rounded-full bg-[#00FF88] animate-pulse" style="animation-delay: 0.5s"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Monitores (direita) -->
+                        <div id="monitors" class="absolute right-2 top-1/4 flex flex-col gap-2">
+                            <!-- Monitor 1 -->
+                            <div class="w-12 h-8 bg-[#0A1628]/50 border border-[#00D4FF]/30 rounded p-1">
+                                <div class="text-[4px] text-[#00FF88] font-mono leading-tight overflow-hidden">
+                                    <span id="matrix-text-1">SYS.READY</span>
+                                </div>
+                                <div class="w-full h-1 bg-[#00D4FF]/20 rounded mt-1"><div class="h-full bg-[#00FF88]" style="width: 70%"></div></div>
+                            </div>
+                            <!-- Monitor 2 -->
+                            <div class="w-12 h-8 bg-[#0A1628]/50 border border-[#00D4FF]/30 rounded p-1">
+                                <div class="text-[4px] text-[#00FF88] font-mono leading-tight overflow-hidden">
+                                    <span id="matrix-text-2">NEURAL.NET</span>
+                                </div>
+                                <div class="w-full h-1 bg-[#00D4FF]/20 rounded mt-1"><div class="h-full bg-[#00D4FF]" style="width: 55%"></div></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cabos superiores (3) -->
+                        <svg class="absolute inset-x-0 top-0 h-16" preserveAspectRatio="none">
+                            <path class="cable-flow" d="M60,0 Q90,30 130,50" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                            <path class="cable-flow" d="M200,0 Q220,25 250,45" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                            <path class="cable-flow" d="M340,0 Q320,30 280,50" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                        </svg>
+                        
+                        <!-- Cabos inferiores (3) -->
+                        <svg class="absolute inset-x-0 bottom-0 h-16" preserveAspectRatio="none">
+                            <path class="cable-flow" d="M80,60 Q110,35 145,20" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                            <path class="cable-flow" d="M200,60 Q200,35 200,20" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                            <path class="cable-flow" d="M320,60 Q290,35 255,20" stroke="#00D4FF" stroke-width="2" fill="none"/>
+                        </svg>
+                        
+                        <!-- Grade holográfica (chão) -->
+                        <svg class="absolute bottom-0 left-0 right-0 h-24 opacity-30" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="floorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#00D4FF" stop-opacity="0"/>
+                                    <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.5"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,100 L50,80 L100,65 L150,55 L200,48 L250,42 L300,38 L350,35 L400,33 L450,32 L500,32 L550,33 L600,35 L640,38" stroke="#00D4FF" stroke-width="1" fill="url(#floorGrad)"/>
+                            <path d="M0,100 L100,60 L200,40 L300,28 L400,20 L500,15 L600,12 L640,10" stroke="#00D4FF" stroke-width="1" fill="none" opacity="0.5"/>
+                            <path d="M0,80 L50,65 L100,52 L150,42 L200,35 L250,30 L300,26 L350,24 L400,22 L450,21 L500,21 L550,22 L600,24 L640,26" stroke="#00D4FF" stroke-width="1" fill="none" opacity="0.3"/>
+                        </svg>
+                        
+                        <!-- Partículas flutuantes -->
+                        <div id="particles" class="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 10%; top: 20%; animation: float 4s ease-in-out infinite;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 25%; top: 60%; animation: float 5s ease-in-out infinite; animation-delay: 1s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 45%; top: 30%; animation: float 3s ease-in-out infinite; animation-delay: 0.5s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00FF88] rounded-full" style="left: 70%; top: 50%; animation: float 4.5s ease-in-out infinite; animation-delay: 2s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 85%; top: 25%; animation: float 3.5s ease-in-out infinite; animation-delay: 1.5s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00FF88] rounded-full" style="left: 60%; top: 70%; animation: float 5s ease-in-out infinite; animation-delay: 0.8s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 35%; top: 80%; animation: float 4s ease-in-out infinite; animation-delay: 2.5s;"></div>
+                            <div class="particle absolute w-1 h-1 bg-[#00D4FF] rounded-full" style="left: 90%; top: 65%; animation: float 3s ease-in-out infinite; animation-delay: 0.3s;"></div>
+                        </div>
+                        
+                        <!-- Linhas de energia -->
+                        <svg class="absolute inset-0 pointer-events-none" preserveAspectRatio="none">
+                            <line x1="50" y1="30%" x2="150" y2="40%" stroke="#00D4FF" stroke-width="1" opacity="0.3" class="energy-line"/>
+                            <line x1="350" y1="35%" x2="450" y2="45%" stroke="#00D4FF" stroke-width="1" opacity="0.3" class="energy-line"/>
+                            <line x1="80" y1="70%" x2="180" y2="60%" stroke="#00FF88" stroke-width="1" opacity="0.2" class="energy-line"/>
+                        </svg>
+                        
+                        <!-- Scanner ring -->
+                        <div id="scanner-ring" class="absolute inset-8 border-2 border-dashed border-[#00D4FF]/40 rounded-full hidden">
+                        </div>
+                        
+                        <!-- Status text -->
+                        <div class="absolute top-4 left-1/2 -translate-x-1/2 text-[#00D4FF]/50 text-xs font-mono">
+                            SYSTEMS ONLINE
+                        </div>
+                    </div>
+                    
+                    <svg id="ironman-svg" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="398.5 0 1108 1080" enable-background="new 398.5 0 1108 1080" xml:space="preserve" class="w-full h-full max-h-[500px] relative z-10" preserveAspectRatio="xMidYMid meet">
+<g id="Body">
+	<g id="Details_1_" class="draw">
+	<polyline fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="1069,453.875 1073.625,459.625 
+		1073.625,486 1076.25,489.25 1076.25,500.5 1063.5,514.625 	"/>
+	<polyline fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="836.379,454.841 831.5,460.5 
+		831.5,486.625 828.75,490.125 828.75,503.125 841.903,514.927 	"/>
+	<polyline stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="982.092,574.831 921,574.375 935.25,583.625 
+		938.5,630.75 938.125,677.25 951.75,685.5 952.5,574.611 953.126,574.615 953,685.5 966.25,679.25 966.25,629.75 973.25,584.75 
+		982.5,574.375 	"/>
+	<polygon stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="826.875,545.375 826.875,526.75 829.5,524.625 
+		829.5,516.5 831.125,513.625 833.25,511.375 836.125,515.125 836.125,523.75 838.75,524.125 838.75,516.625 848.5,511.375 
+		851.75,511.375 864,519.33 864,533.25 860.625,532 857.75,531.5 850,532 844.625,538.375 844.125,558.75 845.438,589.5 	"/>
+	<polygon stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="843.833,558.75 843.833,541.75 845.333,537.416 
+		848.25,533.416 850.583,532.166 855.333,531.666 860.667,532.166 864.167,534.082 866.917,537.332 867.583,540 867.583,546.082 
+		889,546.166 948.5,588 948.5,624.5 947.125,624.5 945.125,624.5 943.375,625.625 942.375,626.875 942.125,631.75 938.625,631.75 
+		926.125,623.375 925.75,603.125 871.875,564.875 	"/>
+	<polygon stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="1042.5,533.375 1042.5,519.5 1052.5,511.25 
+		1060.125,511.25 1067,518.125 1067,524.625 1069,523.75 1069,516 1070.75,512.375 1074,512.25 1075.625,514.75 1075.625,525.75 
+		1078.25,526.5 1078.25,546.538 1061.5,562.25 1061.625,539 1060.375,536.25 1057.875,533.125 1056,532.25 1053.625,531.75 
+		1048.875,531.625 1047,531.875 	"/>
+	<polygon stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="1061.814,538.875 1059.5,534.625 1056.5,533 
+		1051.625,531.666 1047.125,531.666 1043.25,532.875 1040.25,535 1038.625,538.75 1038.625,546.125 1019.375,546.25 957.25,587.25 
+		957.25,624.625 959.375,624.625 960.875,624.625 961.625,624.625 963.125,626 963.5,627.25 964,628.875 964.125,631.75 
+		966.875,631.75 979.5,623.875 979.5,602.75 1033.375,565.5 1048.25,562.25 1061.814,559.875 1061.814,539.375 	"/>
+	<polygon stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="835.417,389.675 836.5,463.009 838.583,468.672 
+		845.438,475.916 851.25,481.166 858.667,488.5 864.583,495.416 873.917,505.414 881.583,516.581 890.167,531.079 895,538.079 
+		899.583,544.245 905.417,547.162 920.75,550.912 938.333,552.162 967.417,552.162 985.083,550.912 992.25,549.662 1002.75,545.495 
+		1005.75,543.495 1009,539.495 1013.417,532.412 1017.25,526.745 1022.583,516.912 1028.5,509.079 1032.875,503.495 
+		1038.333,497.25 1047.167,487.829 1055.667,479.579 1061.167,473.995 1067.083,466.662 1069,462.912 1069,372.677 1002.75,490.75 
+		989,511.375 926.667,511.375 923.25,508.163 905.583,485.746 	"/>
+	<polyline stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="1187.023,612.396 1189,593.875 1180.125,588.5 
+		1179,587.125 1179.625,574.625 1182.251,535.834 1243.667,533.75 1269.751,532.834 1276.667,532.25 1295.084,530.666 
+		1317.667,528.584 1329.834,537.666 1322.084,638 1245.262,640.993 1243.99,603.195 1245.262,640.993 1191.5,638.875 
+		1187.023,612.396 	"/>
+	<polyline stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" points="718.462,609.6 716.75,594.5 717.605,593 
+		721.917,590.834 725.417,589.5 727.083,588.166 725.667,568.666 702.75,531.332 655.75,534 586.583,528.666 571.917,540 
+		660.73,635.059 661.75,594.161 660.73,635.059 718.462,609.6 	"/>
+	<g id="Screws" class="draw">
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="1009.281" cy="564.198" r="4.781"/>
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="855.281" cy="542.198" r="4.781"/>
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="895.281" cy="564.198" r="4.781"/>
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="894.281" cy="592.198" r="4.781"/>
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="1010.281" cy="593.198" r="4.781"/>
+		<circle stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="1050.281" cy="541.198" r="4.781"/>
+	</g>
+	<polyline stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="487.005,682.995 487.005,703.332 488.083,709.832 
+		489.583,717.166 490.75,725.666 493.417,729.832 507.083,742.5 521.917,741.832 539.917,739.166 567.576,730.504 563.917,684.178 
+		492.417,671.003 487.304,682.225 	"/>
+	<polyline stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="1416.645,679.225 1416.645,708 1413.417,723 
+		1408.417,732.332 1401.083,739.378 1397.083,742.666 1336.52,731.91 1338.25,683.25 1412.251,670 1416.645,679.225 	"/>
+</g>
+<g id="Shoulder" class="draw">
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="829.375,434.16 822.25,436.75 813.25,440.25 
+		792.75,448.25 766.75,457.25 751,464.25 741.5,471.75 721.75,486.5 692,508.75 672.5,523.5 648.25,541.5 662.25,549.5 659.5,556.5 
+		656,563.75 652.25,578 650.75,583.25 650,606 665,601.25 673,591.5 679,588 689.25,582.5 698.25,577.25 706.5,572.75 
+		712.25,571.75 724.5,571 746.75,560 753.25,554.159 760.25,544.25 766.5,540 771.5,537.75 778,519.33 803.5,511 821.25,508.5 
+		821.25,449 833.018,442.707 832.645,433.156 	"/>
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="1072.188,442.813 1074.084,443 1077,444.5 
+		1080.125,446.313 1082.75,450.625 1082.5,470.5 1082.25,508.125 1093.25,508.5 1101.25,510.75 1112.5,513.75 1120.5,517.5 
+		1125.75,519.5 1132.5,535.34 1143.75,544.5 1156.75,558.75 1163.707,563.25 1180.5,570.5 1195.75,572.25 1206.25,577.5 
+		1216.75,582.75 1228,589.5 1236,596 1237.5,600.75 1254.75,607.25 1255.25,591.75 1254,581.5 1251,570.75 1242.25,549.5 
+		1257.5,542 1244,532 1224,516.5 1197.5,497.25 1169.5,476.25 1151.75,463.25 1139.25,458.75 1108.25,446.707 1093.5,441.25 
+		1072.188,432.941 	"/>
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="1245.25,632.5 1253.5,623.75 1269.5,604.25 
+		1277,593.25 1283,577.5 1289.5,563.25 1298.75,547.5 1303.75,540 1332.5,542 1336.5,542.25 1349.25,540 1357.5,540 1367.25,544 
+		1376.625,551.75 1391.25,564.625 1400,574.5 1411,587.125 1419.5,599.25 1425,608.75 1430.5,621.25 1435.5,632.5 1439.25,642.5 
+		1444.25,659 1446.75,674.25 1449.25,687 1449.25,696.5 1449.25,700 1442,705 1430.75,702.5 1424.5,691.75 1423,690.25 
+		1420.75,689.5 1418.251,686.666 1417.917,684.582 1418.084,682.25 1412.251,670 1338.25,683.25 1340.125,688.375 1342.625,696.25 
+		1343.625,700.5 1343.375,705 1343,712.25 1341.125,722.125 1338,729.5 1333.625,736.625 1328.375,743.25 1320.375,751.5 
+		1314.875,756 1307.375,759.875 1298.25,764.125 1288,767 1276,767.75 1278.375,757.75 1277.75,753.875 1276.375,749.42 
+		1273.625,743.875 1271.25,740.875 1266.25,739.875 1263.125,740.125 1260.25,741.625 1248.5,745.125 1246.083,744.836 
+		1243.25,734.836 1236.75,716.168 1236.75,713.168 1238.25,708.335 1245.083,695.335 1252.917,680.168 1258.583,671.168 
+		1260.417,665.664 1260.083,661.497 1256.25,652.33 	"/>
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="658.583,631.5 640.75,612.82 627.25,592.663 
+		621.083,578.497 618.75,571.997 612.417,558.168 605.417,546.502 601.583,538.668 590.417,540 585.083,541.168 578.583,541.168 
+		571.083,541.668 561.917,541.002 556.417,540 552.25,538.668 545.25,538.668 535.75,545.168 521.917,556.335 518.917,558.502 
+		507.917,569.335 499.917,578.168 493.25,586.5 486.417,596.832 480.417,606 474.583,616.997 466.583,638.162 462.917,647.496 
+		459.583,660.666 457.583,673.503 455.75,686.503 455.75,691.503 455.75,698.17 457.083,701.003 458.25,703.336 462.917,704.17 
+		466.083,704.17 470.417,703.503 474.083,701.503 478.917,695.17 481.75,691.003 484.583,687.503 485.583,686.67 487.583,681.503 
+		490.083,675.836 492.417,671.003 562.917,683.178 563.917,684.178 564.083,685.678 563.917,688.011 562.417,692.178 
+		561.25,696.678 560.75,699.845 560.583,704.17 560.75,708.345 561.083,714.016 562.583,719.183 565.25,725.85 569.25,733.854 
+		573.417,739.354 579.583,746.854 586.25,752.521 593.75,758.189 600.917,761.856 610.417,765.189 617.083,766.523 622.583,767.356 
+		626.583,767.356 627.917,767.356 625.917,760.189 625.25,757.023 625.917,753.023 626.583,751.356 629.417,746.856 
+		632.917,742.023 635.417,739.856 638.75,739.523 642.25,740.856 645.25,742.189 649.25,743.856 652.583,744.689 654.583,745.188 
+		656.583,745.354 658.583,745.188 659.583,740.521 661.75,733.188 663.583,727.688 665.917,719.354 667.25,714.521 667.25,710.021 
+		663.917,703.021 651.75,680.847 643.75,667.014 643.417,664.843 644.917,660.343 	"/>
+</g>
+<g id="Chest" class="draw">
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="647.75,666.041 650.25,658.291 655.75,644.791 
+		662.25,633.041 670,626.041 695.75,616.791 708.583,616.543 737.166,630.362 738.25,635.543 741.756,641.291 751.417,646.543 
+		758.917,648.043 770.25,647.875 777.75,650.791 919.907,731.797 928.5,763.541 938.069,761.802 948.014,761.467 956.279,761.193 
+		964.9,762.015 974.492,764.763 985,731.041 1009,715.541 1029,704.291 1050.5,693.291 1069.414,682.541 1095.75,668.541 
+		1117.75,657.041 1139.5,642.541 1151.5,642.791 1161,641.291 1165.5,635.041 1165.25,630.041 1195.25,616.791 1201.25,616.543 
+		1206.25,616.543 1213.5,618.541 1225.666,624.125 1238.582,630.959 1241.832,635.459 1245.416,643.125 1252.5,657.291 
+		1255.75,664.041 1255.75,666.791 1252,673.541 1243.375,690.653 1235.5,703.791 1232.25,710.916 1232.375,715.666 1234,720.916 
+		1239.5,738.666 1242.625,747.416 1243.375,749.462 1245.125,750.416 1249.75,749.462 1264.125,744.166 1266.75,744.291 
+		1268.375,745.791 1270.375,748.541 1272,752.166 1273.375,756.041 1273.375,763.712 1271.916,769.212 1270.416,773.545 
+		1267.25,792.416 1093.084,959.375 1090.416,959.375 1029.584,921.209 1025.084,925.041 1023.25,926.875 1020.916,929.041 
+		1016.416,932.541 1010.084,937.375 1008.916,938.209 1004.416,941.041 1001.25,942.709 998.25,943.875 994.584,945.541 
+		990.75,947.041 986.916,948.041 983.75,949.375 978.25,951.041 974.584,951.875 969.084,953.209 962.75,953.541 955.416,953.875 
+		949.25,954.375 945.083,954.209 938.417,953.709 932.917,953.375 925.583,951.709 918.417,950.375 907.583,945.541 
+		896.083,939.709 890.75,935.541 884.25,930.375 878.25,924.375 877.25,923.541 812.25,959.375 810.417,959.375 801.583,950.375 
+		637.75,793.202 629.583,758.369 629.583,756.202 629.583,753.702 631.25,750.869 632.917,747.702 634.25,745.035 635.917,744.535 
+		638.083,744.369 639.417,744.535 641.083,745.202 655.417,750.535 657.25,750.365 659.25,749.462 661.917,745.698 663.917,739.032 
+		668.25,724.375 669.416,719.875 670.916,715.041 671.416,712.375 669.916,706.541 668.916,703.375 	"/>
+	<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="714.5,615.25 760.25,550 816.5,541.75 832,551 
+		837.25,555.5 837.25,559.75 838.75,560.5 840.5,561.5 844,561.25 869.25,588.5 886.75,603.75 898.75,612.82 917.25,626.75 
+		933,637.75 934.75,668 951.979,678.5 969.25,668.75 970.5,637.25 985.5,627 994.25,621.25 1002,614.75 1013,606 1020,600.75 
+		1036,587 1049.5,573.25 1056.75,564 1058.75,560 1061.5,562.25 1063.25,562 1065.25,560.75 1066.75,558.5 1066.75,555.5 
+		1069.915,552.5 1082.5,543.5 1086,541.75 1091.25,541.75 1100.5,543.25 1111.5,545.25 1120.25,546.75 1144.5,551 1189,615.25 
+		1165.75,626.5 1162.25,622 1154,616.5 1147.25,614.25 1144.5,614.25 1141,614.5 1134.75,616.5 1131.25,618.25 1128,621.5 
+		1127.75,623.5 1127.75,626.5 1127.75,632.5 1129.25,642.25 1129,645 1128.5,646.25 982.5,725.75 970.482,763.429 965.401,761.973 
+		956.78,761.151 948.514,761.425 938.57,761.76 933.334,762.712 923.25,728 779.5,646.25 779.5,643.75 779.25,638.75 778.25,630.25 
+		777,624.25 774,618 767.499,614.081 761.75,614.099 752.25,616.5 746.5,618.5 741.833,622.25 739.25,627.25 	"/>
+	<g id="Screws_1_" class="draw">
+		<ellipse transform="matrix(-0.7376 0.6752 -0.6752 -0.7376 2421.0381 346.5863)" stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="1143.179" cy="643.692" rx="18" ry="21.713"/>
+		<ellipse transform="matrix(-0.8815 -0.4722 0.4722 -0.8815 1132.8716 1567.7334)" stroke="#1A3A4A" stroke-width="2" stroke-miterlimit="10" cx="763.158" cy="641.712" rx="18" ry="21.713"/>
+	</g>
+</g>
+<g id="reactor">
+<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="951.083" cy="849.333" r="144.667"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="951.528" cy="846.823" r="107.445"/>
+<g>
+	<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="952.083" cy="846.666" r="96"/>
+	<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="952.083" cy="852.666" r="96"/>
+	<path fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" d="M1043.084,854.339
+		c0,50.256-40.741,90.998-91,90.998c-50.257,0-91-40.742-91-90.998c0-50.262,40.742-91.002,91-91.002
+		C1002.343,763.337,1043.084,804.077,1043.084,854.339z"/>
+</g>
+<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="952.917" cy="852.837" r="77.5"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="953.247" cy="853.167" r="56.482"/>
+<rect x="947.369" y="775.923" fill="#00D4FF" width="9.877" height="20.763"/>
+<rect x="994.357" y="887.924" transform="matrix(-0.7071 0.7071 -0.7071 -0.7071 2341.1018 826.8947)" fill="#00D4FF" width="9.876" height="20.763"/>
+<rect x="899.369" y="886.911" transform="matrix(-0.7071 -0.7072 0.7072 -0.7071 909.1772 2171.2163)" fill="#00D4FF" width="9.875" height="20.763"/>
+<rect x="994.034" y="793.578" transform="matrix(-0.7071 -0.7071 0.7071 -0.7071 1136.8668 2078.8252)" fill="#00D4FF" width="9.876" height="20.763"/>
+<rect x="1007.928" y="848.365" fill="#00D4FF" width="20.764" height="9.876"/>
+<rect x="875.926" y="848.366" fill="#00D4FF" width="20.764" height="9.877"/>
+<rect x="947.369" y="907.923" fill="#00D4FF" width="9.877" height="20.763"/>
+<rect x="900.358" y="795.924" transform="matrix(-0.7071 0.7071 -0.7071 -0.7071 2115.5815 736.3083)" fill="#00D4FF" width="9.876" height="20.763"/>
+<rect x="921.353" y="781.972" transform="matrix(-0.889 0.4579 -0.4579 -0.889 2112.5991 1072.5588)" fill="#00D4FF" width="9.876" height="20.765"/>
+<rect x="973.35" y="903.976" transform="matrix(-0.889 0.4579 -0.4579 -0.889 2266.6912 1279.2107)" fill="#00D4FF" width="9.876" height="20.765"/>
+<rect x="1009.388" y="866.994" transform="matrix(-0.3048 0.9524 -0.9524 -0.3048 2159.0862 178.684)" fill="#00D4FF" width="9.876" height="20.764"/>
+<rect x="886.384" y="816.987" transform="matrix(-0.3049 0.9524 -0.9524 -0.3049 1951.0419 230.7223)" fill="#00D4FF" width="9.875" height="20.763"/>
+<rect x="920.426" y="902.937" transform="matrix(-0.87 -0.4931 0.4931 -0.87 1280.016 2164.188)" fill="#00D4FF" width="9.876" height="20.764"/>
+<rect x="972.355" y="779.842" transform="matrix(-0.9184 -0.3956 0.3956 -0.9184 1562.2739 1902.5861)" fill="#00D4FF" width="9.875" height="20.763"/>
+<rect x="1008.391" y="815.876" transform="matrix(-0.4266 -0.9044 0.9044 -0.4266 698.3229 2095.2385)" fill="#00D4FF" width="9.875" height="20.766"/>
+<rect x="886.395" y="865.88" transform="matrix(-0.4266 -0.9044 0.9044 -0.4266 479.1045 2056.2544)" fill="#00D4FF" width="9.874" height="20.766"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" cx="953.445" cy="852.527" r="29.197"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="953.278" cy="810.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="995.278" cy="851.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="953.278" cy="896.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="910.278" cy="852.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="981.278" cy="819.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="922.278" cy="880.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="922.278" cy="821.139" r="5.344"/>
+<circle fill="none" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" cx="985.278" cy="881.139" r="5.344"/>
+</g>
+<g id="Helmet" class="draw">
+	<g id="Details_2_">
+		<g id="Ear_x5F_right">
+			<polyline stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="1082.25,258.25 1088.5,262.5 1088.5,272 
+				1088.5,285.5 1087.75,296 1086.75,329 1085.375,344 1078.605,348.904 			"/>
+		</g>
+		<g id="Ear_x5F_left">
+			<polyline stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="823,258.25 816.5,263 816.5,278 818.5,321.5 
+				819.75,344.75 827.417,351.496 			"/>
+		</g>
+		<polygon stroke="#00D4FF" stroke-width="5" stroke-miterlimit="10" points="851.917,454.5 837.75,404.834 836.083,393.666 
+			830.083,349.334 826.25,321 825,297.25 825,272 826.75,226 834.25,175.5 831.475,285.498 836,175.5 860.239,112.835 888.5,101.75 
+			908,96.5 933.25,92.5 952.896,91.25 967.25,91.25 986.25,94.25 1001,97 1019.125,102 1055.125,120.625 1070.25,136.75 
+			1073.375,270.25 1070.806,160.499 1077.75,219.75 1080.25,263.5 1080.25,297.5 1077.75,338.25 1074.5,368.5 1069.75,395.5 
+			1054.75,453.25 1006.75,495.25 897.75,495.25 		"/>
+	</g>
+	<g id="Face_Mask">
+		<g id="Eyes">
+			<polyline fill="#00D4FF" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="856.963,267.644 854.417,278.5 
+				866.417,285.5 874.083,286.667 884.417,286.667 893.083,286.667 904.417,286.667 910.083,285.333 913.917,284 916.43,278.375 
+				856.963,267.644 			"/>
+			<polyline fill="#00D4FF" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="1050.154,268.156 1053.417,277.155 
+				1051.785,278.833 1035.961,286.208 994.961,285.374 992.417,283.167 990.917,280.75 990.265,278.396 1050.154,268.156 			"/>
+		</g>
+		<g id="FM_x5F_Jaw">
+			<polygon fill="#0A1628" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="870.333,450.919 876.25,424.419 
+				877.083,422.669 878.333,421.086 880.167,421.086 882.417,422.336 895.75,439.336 896.583,440.086 898,439.336 911.75,421.086 
+				994.083,421.086 1007.167,437.84 1007.917,439.007 1009.583,439.257 1011.5,437.84 1013.333,436.003 1023.833,421.674 
+				1026.25,420.59 1027.5,420.924 1028.917,422.757 1034.917,449.34 1034.917,450.919 1034.917,452.674 1015.75,470.924 
+				1014.25,470.924 1012.167,470.924 1010.583,469.59 992.75,453.924 992.083,452.841 990.083,452.591 969.667,452.258 
+				968.5,450.924 966.667,446.591 965.583,445.757 962.75,445.757 940.083,445.757 938.75,445.757 937.25,448.508 936.25,451.091 
+				935.75,452.174 935.083,453.008 914.333,453.008 912.583,453.591 909.917,456.091 894.917,469.508 893.75,470.508 
+				891.917,471.591 890.667,471.591 888.333,469.508 			"/>
+		</g>
+		<g id="FM_x5F_Lower">
+			<polyline fill="#0A1628" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="832.417,272.917 829.417,313 
+				842.583,342.997 855.25,361.83 859.083,367.33 872.417,389.327 874.417,393.661 876.25,400.994 877.417,407.661 878.917,413.827 
+				894.083,428.826 896.583,430.992 898.917,430.159 909.25,412.625 996.5,412.875 1006.25,429 1007.5,430.375 1008.75,430.992 
+				1011,429.875 1026.375,413 1026.375,408.375 1027.25,403.25 1028.375,399.375 1030.375,393.5 1033.625,385.625 1039.875,375.25 
+				1048,363.75 1059.375,348.375 1065,337.5 1068.25,329.875 1073.375,314 1073.375,272 1057.875,282.875 1056.25,283.75 
+				1052.375,286.625 1047.375,289 1040.5,291.25 1028.625,291.125 989,289.875 984.629,278.604 920.5,278.667 917.25,290.5 
+				864.875,291.625 859.375,289 854.625,286.625 851.125,284.25 845.959,278.72 832.417,272.917 			"/>
+		</g>
+		<g id="FM_x5F_Upper">
+			<polygon fill="#0A1628" stroke="#00D4FF" stroke-width="3" stroke-miterlimit="10" points="836.583,135.509 835.583,144.509 
+				834.25,163.509 834.25,168.675 834.25,179.342 834.25,191.173 834.25,205.004 834.25,216.835 834.25,224.835 835.417,237.169 
+				837.583,246.002 837.583,249.333 835.917,251.833 834.25,254.333 832.417,256.333 832.417,272.917 847.583,279.417 
+				848.583,265.583 852.333,266.5 859.417,268.25 873.833,272.333 893.333,275.833 919.083,278.667 982.917,278.667 
+				1005.417,277.834 1023,275.084 1030.417,273.334 1037.25,271.751 1057,266.251 1057.25,280.75 1073.375,272 1073.375,257.625 
+				1070.375,252.875 1068.5,250.5 1068.125,248 1068,244.25 1069.25,239 1071,224.125 1071.125,201.75 1070.625,178.875 
+				1070.25,136.75 1065.5,130.5 1055.125,120.625 1043.5,112.75 1040.75,113.625 1039.25,113.875 1035.125,111.25 1034.125,107.375 
+				1026.75,104.125 1019.125,102 1012.625,101.125 1004.875,101.125 999.125,101.125 997.625,102.625 996.125,105.125 
+				994.75,110.625 992.125,122.5 990.75,130.375 990.25,139 989.5,154.125 989,159.875 982.25,176.5 923.25,176.125 
+				916.875,161.125 916.625,149.375 916,143 915.375,135 912.125,115.125 907.75,101.75 905,101.125 897.125,101.125 892.5,101.125 
+				888.5,101.75 882.375,102.875 869.875,108.5 869.375,110.75 868.75,111.75 867.75,112.625 864.75,113.375 861,112.25 
+				856.125,116 847.75,123.5 			"/>
+		</g>
+	</g>
+</g>
+</svg>
+                </div>
+                
+                <!-- Parte Inferior: AI Activity (30%) - Visualizador JARVIS -->
+                <div id="ai-activity" class="flex-[3] bg-black/80 p-3 border-t border-cyan-500/30">
+                    <!-- Header -->
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-cyan-500/20">
+                        <div class="flex items-center gap-2">
+                            <div id="ai-hex-icon" class="w-5 h-5 text-cyan-400 animate-pulse">⬡</div>
+                            <span class="text-cyan-400 font-orbitron text-xs tracking-wider">AI CORE ACTIVITY</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-cyan-400 text-xs" id="ai-dots">●●●</span>
+                            <span id="ai-power" class="text-cyan-400 font-orbitron text-xs">98.7% PWR</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 3 Colunas: Neural Net | Equalizer | System Log -->
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        <!-- Neural Net -->
+                        <div class="bg-black/40 rounded p-2 border border-cyan-500/20">
+                            <div class="text-[10px] text-cyan-600 mb-1 font-orbitron">NEURAL NET</div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px]"><span class="text-cyan-600">INFERENCE</span><span id="nn-inference" class="text-cyan-400">0%</span></div>
+                                <div class="h-1.5 bg-gray-800 rounded overflow-hidden"><div id="bar-inference" class="h-full bg-cyan-500 transition-all duration-300" style="width:0%"></div></div>
+                                <div class="flex justify-between text-[10px]"><span class="text-cyan-600">MEMORY</span><span id="nn-memory" class="text-cyan-400">0%</span></div>
+                                <div class="h-1.5 bg-gray-800 rounded overflow-hidden"><div id="bar-memory" class="h-full bg-cyan-500 transition-all duration-300" style="width:0%"></div></div>
+                                <div class="flex justify-between text-[10px]"><span class="text-cyan-600">RESPONSE</span><span id="nn-response" class="text-cyan-400">0%</span></div>
+                                <div class="h-1.5 bg-gray-800 rounded overflow-hidden"><div id="bar-response" class="h-full bg-cyan-500 transition-all duration-300" style="width:0%"></div></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Equalizer -->
+                        <div class="bg-black/40 rounded p-2 border border-cyan-500/20">
+                            <div class="text-[10px] text-cyan-600 mb-1 font-orbitron">EQUALIZER</div>
+                            <div class="flex items-end justify-center gap-0.5 h-16" id="equalizer-bars">
+                                <!-- 20 barras geradas via JS -->
+                            </div>
+                            <!-- Reflexo -->
+                            <div class="flex items-start justify-center gap-0.5 h-8 mt-1 opacity-30" id="equalizer-reflection">
+                                <!-- 20 barras invertidas -->
+                            </div>
+                        </div>
+                        
+                        <!-- System Log -->
+                        <div class="bg-black/40 rounded p-2 border border-cyan-500/20">
+                            <div class="text-[10px] text-cyan-600 mb-1 font-orbitron">SYSTEM LOG</div>
+                            <div id="system-log" class="text-[9px] text-cyan-400 font-mono h-14 overflow-hidden leading-tight">
+                                <div>> STANDBY MODE</div>
+                                <div class="text-cyan-600">> INITIALIZED</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="flex justify-between items-center pt-2 border-t border-cyan-500/20">
+                        <div id="ai-status" class="flex items-center gap-1.5">
+                            <span class="text-cyan-400 text-xs">●</span>
+                            <span class="text-xs text-cyan-400 font-orbitron">STANDBY</span>
+                        </div>
+                        <div class="flex-1 mx-3">
+                            <div class="h-1 bg-gray-800 rounded overflow-hidden">
+                                <div id="token-bar" class="h-full bg-cyan-500 transition-all duration-300" style="width:0%"></div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-cyan-600 font-mono">TOKEN: <span id="token-count">0/2048</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Divisor Redimensionável -->
+            <div id="chat-resizer" class="w-1 cursor-col-resize bg-transparent hover:bg-ravis-blue/50 transition-colors"></div>
+            
+            <!-- Coluna 3: Chat (Direita) - NOVO DESIGN JARVIS -->
+            <main id="chat-panel" class="w-[500px] flex-shrink-0 flex flex-col border-l border-[#00D4FF]/30 mr-2 bg-[#041525]">
+                <!-- Chat Header -->
+                <div class="bg-[#051a35] border-b border-[#00D4FF]/30 p-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3">
+                                <svg viewBox="0 0 24 24" fill="#00D4FF">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                            </div>
+                            <span class="text-[#00D4FF] font-orbitron text-sm tracking-wider">RAVIS COMM CHANNEL</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div id="chat-online" class="w-2 h-2 rounded-full bg-[#00FF88] animate-pulse"></div>
+                            <span class="text-[#00FF88] text-xs font-orbitron">ONLINE</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mt-2">
+                        <span class="text-[#00D4FF]/60 text-xs font-mono">SESSION ID: <span id="session-id">------</span></span>
+                        <span class="text-[#00D4FF]/60 text-xs font-mono font-tabular" id="session-timer">00:00:00</span>
+                    </div>
+                </div>
+                
+                <!-- Toolbar -->
+                <div class="flex gap-1 p-2 border-b border-[#00D4FF]/20 bg-[#031525]/50">
+                    <button onclick="copyConversation()" class="p-2 hover:bg-[#00D4FF]/10 rounded transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF]" title="Copiar conversa">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </button>
+                    <button onclick="toggleSearch()" class="p-2 hover:bg-[#00D4FF]/10 rounded transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF]" title="Buscar no chat">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    </button>
+                    <button onclick="newConversation()" class="p-2 hover:bg-[#00D4FF]/10 rounded transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF]" title="Nova conversa">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                    <button onclick="toggleHistory()" class="p-2 hover:bg-[#00D4FF]/10 rounded transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF]" title="Histórico">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                    </button>
+                </div>
+                
+                <!-- Campo de busca (oculto por padrão) -->
+                <div id="chat-search" class="hidden p-2 border-b border-[#00D4FF]/20 bg-[#031525]/50">
+                    <input type="text" id="search-input" placeholder="Buscar no chat..." 
+                        class="w-full bg-[#031525] border border-[#00D4FF]/30 rounded px-3 py-2 text-white text-sm focus:border-[#00D4FF] outline-none font-rajdhani"
+                        oninput="searchMessages(this.value)">
+                </div>
+                
+                <!-- Messages -->
+                <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <!-- Welcome Message -->
+                    <div class="flex items-start justify-start">
+                        <div class="flex items-start gap-2 max-w-[85%]">
+                            <div class="w-6 h-6 flex-shrink-0 mt-1">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#00D4FF" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                            </div>
+                            <div class="bg-[#041525] rounded-lg p-3 border border-[#00D4FF]/40 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                                <p class="text-sm text-[#00D4FF]">Olá, Adonis. Detectei sua presença. Em que posso ajudar?</p>
+                                <p class="text-xs text-[#00D4FF]/40 mt-1 font-mono">00:00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Input Area -->
+                <div class="p-3 bg-[#051a35] border-t border-[#00D4FF]/30">
+                    <div class="flex gap-2 items-center">
+                        <!-- Botão Anexar Arquivo -->
+                        <label for="file-upload" class="p-3 bg-[#041525] border border-[#00D4FF]/30 rounded-lg hover:border-[#00D4FF] transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF] cursor-pointer" title="Anexar arquivo">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                        </label>
+                        <input type="file" id="file-upload" class="hidden" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.gif,.bmp,.webp" onchange="handleFileUpload(this)">
+                        <button onclick="toggleVoiceInput()" id="voice-btn" class="p-3 bg-[#041525] border border-[#00D4FF]/30 rounded-lg hover:border-[#00D4FF] transition-colors text-[#00D4FF]/60 hover:text-[#00D4FF]" title="Entrada de voz">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                        </button>
+                        <input 
+                            type="text" 
+                            id="message-input"
+                            placeholder="Digite sua mensagem..." 
+                            class="flex-1 bg-[#041525] border border-[#00D4FF]/30 rounded-lg px-4 py-3 text-white placeholder-[#00D4FF]/40 focus:outline-none focus:border-[#00D4FF] transition-colors font-rajdhani text-sm"
+                            onkeypress="if(event.key==='Enter')sendMessage()"
+                        >
+                        <button 
+                            onclick="sendMessage()"
+                            class="px-5 py-3 bg-[#00D4FF]/10 border border-[#00D4FF] text-[#00D4FF] rounded-lg hover:bg-[#00D4FF] hover:text-[#041525] transition-all font-orbitron text-xs flex items-center gap-2"
+                        >
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            ENV
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Media Window -->
+    <div id="media-window" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] bg-[#041525] border-2 border-[#00D4FF] rounded-lg z-[55] shadow-lg">
+        <!-- Header -->
+        <div id="media-header" class="flex justify-between items-center p-3 border-b border-[#00D4FF]/30 cursor-move bg-[#051a35] rounded-t">
+            <span class="text-[#00D4FF] font-orbitron text-sm">📷 ÚLTIMA CAPTURA</span>
+            <div class="flex gap-2">
+                <button onclick="minimizeMediaWindow()" class="text-gray-400 hover:text-[#00D4FF] text-lg">➖</button>
+                <button onclick="toggleMediaWindow()" class="text-gray-400 hover:text-red-500 text-lg">✕</button>
+            </div>
+        </div>
+        <!-- Body -->
+        <div id="media-body" class="h-[240px] flex items-center justify-center p-2">
+            <img id="media-image" class="max-h-full max-w-full object-contain hidden cursor-pointer" onclick="openImageFullscreen()" />
+            <div id="media-placeholder" class="text-center text-gray-500">
+                <div class="text-4xl mb-2">📷</div>
+                <div class="text-sm">Nenhuma captura ainda</div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div id="media-footer" class="flex justify-between items-center p-3 border-t border-[#00D4FF]/30">
+            <span id="media-timestamp" class="text-gray-500 text-xs">--</span>
+            <button onclick="analyzeLatestCapture()" class="px-3 py-1 bg-[#00D4FF]/20 border border-[#00D4FF] text-[#00D4FF] rounded text-sm hover:bg-[#00D4FF]/30">🔍 Analisar</button>
+        </div>
+    </div>
+    
+    <!-- Fullscreen Image Modal -->
+    <div id="fullscreen-modal" class="hidden fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-8" onclick="closeFullscreen()">
+        <img id="fullscreen-image" class="max-h-full max-w-full object-contain" />
+    </div>
+    
+    <!-- Histórico de Conversas (painel lateral) -->
+    <div id="history-panel" class="fixed top-0 right-0 h-full w-80 bg-[#041525] border-l-2 border-[#00D4FF] z-[60] transform translate-x-full transition-transform duration-300">
+        <div class="flex justify-between items-center p-3 border-b border-[#00D4FF]/30 bg-[#051a35]">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-[#00D4FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                <span class="text-[#00D4FF] font-orbitron text-sm tracking-wider">HISTÓRICO</span>
+            </div>
+            <button onclick="toggleHistory()" class="text-[#00D4FF]/60 hover:text-red-500 text-lg">✕</button>
+        </div>
+        
+        <!-- Search -->
+        <div class="p-2 border-b border-[#00D4FF]/20 bg-[#031525]/50">
+            <input type="text" id="history-search" placeholder="Buscar conversas..." 
+                class="w-full bg-[#041525] border border-[#00D4FF]/30 rounded px-3 py-2 text-white text-sm focus:border-[#00D4FF] outline-none font-rajdhani"
+                oninput="filterHistory(this.value)">
+        </div>
+        
+        <!-- New conversation button -->
+        <div class="p-2 border-b border-[#00D4FF]/20">
+            <button onclick="newConversation()" class="w-full py-2 bg-[#00D4FF]/10 border border-[#00D4FF]/30 text-[#00D4FF] rounded text-xs hover:bg-[#00D4FF]/20 transition-colors font-orbitron flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                NOVA CONVERSA
+            </button>
+        </div>
+        
+        <div id="history-list" class="p-2 overflow-y-auto h-[calc(100%-180px)] space-y-2">
+            <div class="text-cyan-500/50 text-sm text-center p-4">Nenhuma conversa salva</div>
+        </div>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>

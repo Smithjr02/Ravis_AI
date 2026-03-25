@@ -1,0 +1,81 @@
+# ============================================
+# DEPENDÉNCIAS DO PROJETO RAVIS
+# ============================================
+# Propósito: Lista de dependências Python do assistente virtual Ravis
+#
+# Instalação: pip install -r requirements.txt
+#
+# Organização por categoria:
+#   1. Interface & Servidor
+#   2. Inteligência Artificial
+#   3. Reconhecimento de Voz
+#   4. Síntese de Voz
+#   5. Pesquisa Web
+#   6. Áudio
+#   7. Processamento de Dados
+#   8. Visão Computacional
+#   9. Utilitários
+# ============================================
+
+# ============================================
+# 1. INTERFACE & SERVIDOR
+# ============================================
+pywebview                  # Janelas GUI (Chromium wrapper)
+fastapi                    # Framework web rápido
+uvicorn                    # Servidor ASGI
+aiofiles                   # I/O assíncrono
+python-multipart           # Upload de arquivos
+
+# ============================================
+# 2. INTELIGÊNCIA ARTIFICIAL
+# ============================================
+groq                       # Cliente Groq API (IA cloud)
+google-genai               # Cliente Gemini API
+
+# ============================================
+# 3. RECONHECIMENTO DE VOZ (STT)
+# ============================================
+faster-whisper            # Whisper local (offline)
+pyaudio                   # Interface de áudio
+
+# ============================================
+# 4. SÍNTESE DE VOZ (TTS)
+# ============================================
+edge-tts                  # Microsoft Edge TTS (online)
+
+# ============================================
+# 5. PESQUISA WEB
+# ============================================
+tavily-python             # Pesquisa inteligente
+serper                    # Resultados Google
+ddgs                      # DuckDuckGo (privado)
+
+# ============================================
+# 6. ÁUDIO
+# ============================================
+pygame                    # Reprodução de áudio
+sounddevice               # Captura de microfone
+soundfile                 # Processamento de áudio
+numpy                     # Cálculos numéricos
+
+# ============================================
+# 7. PROCESSAMENTO DE DADOS
+# ============================================
+requests                  # Requisições HTTP
+beautifulsoup4            # Parsing HTML
+lxml                      # Parser XML/HTML
+PyPDF2                    # Leitura de PDFs
+python-docx               # Leitura de Word
+
+# ============================================
+# 8. VISÃO COMPUTACIONAL
+# ============================================
+mss                         # Captura de tela
+Pillow                     # Processamento de imagem
+pynput                     # Atalhos de teclado
+
+# ============================================
+# 9. UTILITÁRIOS
+# ============================================
+python-dotenv             # Variáveis de ambiente
+psutil                    # Monitoramento de sistema
